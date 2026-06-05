@@ -110,16 +110,26 @@ def read_sessions(server: ServerConfig) -> list[ClaudeSession] | None:
     ok, output = execute_command(server, "cat ~/.claude/sessions/*.json 2>/dev/null", timeout=10)
     
     if not ok:
-        return None  # SSH 连接失败
+        return None  # 连接失败
     
     sessions = []
-    for line in output.strip().split("\n"):
-        line = line.strip()
-        if not line:
-            continue
+    
+    # 使用 JSONDecoder 逐个解析（处理多个 JSON 在同一行的情况）
+    decoder = json.JSONDecoder()
+    pos = 0
+    text = output.strip()
+    
+    while pos < len(text):
+        # 跳过空白字符
+        while pos < len(text) and text[pos] in ' \t\n\r':
+            pos += 1
+        
+        if pos >= len(text):
+            break
         
         try:
-            data = json.loads(line)
+            data, end_pos = decoder.raw_decode(text, pos)
+            pos = end_pos
             
             # 必需字段
             pid = data.get("pid")
@@ -143,7 +153,8 @@ def read_sessions(server: ServerConfig) -> list[ClaudeSession] | None:
             sessions.append(session)
             
         except json.JSONDecodeError:
-            continue
+            # 跳过无法解析的字符
+            pos += 1
     
     return sessions
 
