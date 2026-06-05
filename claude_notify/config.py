@@ -14,7 +14,8 @@ from .notify.feishu import FeishuConfig
 class ServerConfig:
     """服务器配置"""
     name: str
-    ssh_host: str
+    ssh_host: str = ""  # SSH Host 别名，为空表示本地
+    is_local: bool = False  # 是否本地服务器
 
 
 @dataclass

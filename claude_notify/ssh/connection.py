@@ -14,7 +14,8 @@ from typing import Optional
 class ServerConfig:
     """服务器配置"""
     name: str
-    ssh_host: str  # SSH Host 别名（使用 ~/.ssh/config 中的配置）
+    ssh_host: str = ""  # SSH Host 别名，为空表示本地
+    is_local: bool = False  # 是否本地服务器
 
 
 @dataclass
@@ -35,8 +36,8 @@ class ClaudeSession:
         return self.status == "busy"
 
 
-def execute_ssh(server: ServerConfig, command: str, timeout: int = 30) -> tuple[bool, str]:
-    """在远程服务器执行命令
+def execute_command(server: ServerConfig, command: str, timeout: int = 30) -> tuple[bool, str]:
+    """在远程服务器或本地执行命令
     
     Args:
         server: 服务器配置
@@ -46,6 +47,26 @@ def execute_ssh(server: ServerConfig, command: str, timeout: int = 30) -> tuple[
     Returns:
         (成功与否, 输出内容或错误信息)
     """
+    # 本地执行
+    if server.is_local:
+        try:
+            result = subprocess.run(
+                command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
+            if result.returncode == 0:
+                return True, result.stdout
+            else:
+                return False, result.stderr or f"退出码: {result.returncode}"
+        except subprocess.TimeoutExpired:
+            return False, "命令执行超时"
+        except Exception as e:
+            return False, str(e)
+    
+    # SSH 远程执行
     args = [
         "ssh",
         "-o", "StrictHostKeyChecking=no",
@@ -82,11 +103,11 @@ def read_sessions(server: ServerConfig) -> list[ClaudeSession] | None:
         server: 服务器配置
         
     Returns:
-        ClaudeSession 列表，SSH 连接失败返回 None
+        ClaudeSession 列表，连接失败返回 None
     """
     import json
     
-    ok, output = execute_ssh(server, "cat ~/.claude/sessions/*.json 2>/dev/null", timeout=10)
+    ok, output = execute_command(server, "cat ~/.claude/sessions/*.json 2>/dev/null", timeout=10)
     
     if not ok:
         return None  # SSH 连接失败

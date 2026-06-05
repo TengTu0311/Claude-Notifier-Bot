@@ -9,7 +9,7 @@ import json
 from dataclasses import dataclass
 from typing import Optional
 
-from ..ssh.connection import ServerConfig, execute_ssh
+from ..ssh.connection import ServerConfig, execute_command
 
 
 @dataclass
@@ -95,14 +95,14 @@ def extract_task_info(server: ServerConfig, session_id: str, project_dir: str) -
     
     # 尝试查找实际目录（因为编码可能不完全一致）
     find_cmd = f"ls -d ~/.claude/projects/*{session_id[:8]}* 2>/dev/null | head -1"
-    ok, found_path = execute_ssh(server, find_cmd, timeout=5)
+    ok, found_path = execute_command(server, find_cmd, timeout=5)
     
     log_content = ""
     
     # 如果找到了精确目录，直接使用
     if ok and found_path.strip():
         log_dir = found_path.strip()
-        ok2, output = execute_ssh(server, f"tail -30 {log_dir}/{session_id}.jsonl 2>/dev/null", timeout=10)
+        ok2, output = execute_command(server, f"tail -30 {log_dir}/{session_id}.jsonl 2>/dev/null", timeout=10)
         if ok2 and output.strip():
             log_content = output
     
@@ -114,7 +114,7 @@ def extract_task_info(server: ServerConfig, session_id: str, project_dir: str) -
         ]
         
         for path in possible_paths:
-            ok, output = execute_ssh(server, f"tail -30 {path} 2>/dev/null", timeout=10)
+            ok, output = execute_command(server, f"tail -30 {path} 2>/dev/null", timeout=10)
             if ok and output.strip():
                 log_content = output
                 break
@@ -122,9 +122,9 @@ def extract_task_info(server: ServerConfig, session_id: str, project_dir: str) -
     # 如果还是没找到，用 find 命令搜索
     if not log_content:
         find_cmd = f"find ~/.claude/projects -name '{session_id}.jsonl' 2>/dev/null | head -1"
-        ok, found_file = execute_ssh(server, find_cmd, timeout=10)
+        ok, found_file = execute_command(server, find_cmd, timeout=10)
         if ok and found_file.strip():
-            ok2, output = execute_ssh(server, f"tail -30 {found_file.strip()} 2>/dev/null", timeout=10)
+            ok2, output = execute_command(server, f"tail -30 {found_file.strip()} 2>/dev/null", timeout=10)
             if ok2 and output.strip():
                 log_content = output
     
@@ -190,7 +190,7 @@ def extract_task_info(server: ServerConfig, session_id: str, project_dir: str) -
     
     # 也读取 history.jsonl 获取用户最后消息
     if not last_user_msg:
-        ok, history = execute_ssh(server, "tail -3 ~/.claude/history.jsonl 2>/dev/null", timeout=5)
+        ok, history = execute_command(server, "tail -3 ~/.claude/history.jsonl 2>/dev/null", timeout=5)
         if ok:
             for line in history.strip().split("\n"):
                 try:
