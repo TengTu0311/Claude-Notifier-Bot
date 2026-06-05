@@ -65,15 +65,27 @@ def run_monitor(config: MonitorConfig) -> None:
 def run_chat(config: MonitorConfig) -> None:
     """运行聊天模式"""
     from .chat.feishu_bot import FeishuChatBot
+    from .ssh.connection import ServerConfig
 
     if not config.feishu.app_id or not config.feishu.app_secret:
         print("错误: 未配置飞书应用凭证")
         sys.exit(1)
 
+    # 转换服务器配置
+    servers = [
+        ServerConfig(
+            name=s.name,
+            ssh_host=s.ssh_host or "",
+            is_local=s.is_local,
+        )
+        for s in config.servers
+    ]
+
     bot = FeishuChatBot(
         app_id=config.feishu.app_id,
         app_secret=config.feishu.app_secret,
         allowed_user_id=config.feishu.user_id or None,
+        servers=servers,
     )
 
     def shutdown(signum, frame):
@@ -91,6 +103,7 @@ def run_both(config: MonitorConfig) -> None:
     import threading
     from .monitor import ClaudeMonitor
     from .chat.feishu_bot import FeishuChatBot
+    from .ssh.connection import ServerConfig
 
     # 启动监控（后台线程）
     monitor = ClaudeMonitor(config)
@@ -99,10 +112,21 @@ def run_both(config: MonitorConfig) -> None:
 
     # 启动聊天（主线程）
     if config.feishu.app_id and config.feishu.app_secret:
+        # 转换服务器配置
+        servers = [
+            ServerConfig(
+                name=s.name,
+                ssh_host=s.ssh_host or "",
+                is_local=s.is_local,
+            )
+            for s in config.servers
+        ]
+
         bot = FeishuChatBot(
             app_id=config.feishu.app_id,
             app_secret=config.feishu.app_secret,
             allowed_user_id=config.feishu.user_id or None,
+            servers=servers,
         )
         bot.start()
     else:
